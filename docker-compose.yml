@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: vessel-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: vessel
+      POSTGRES_PASSWORD: vessel
+      POSTGRES_DB: vessel
+    ports:
+      - "5432:5432"
+    volumes:
+      - vessel_pg_data:/var/lib/postgresql/data
+
+volumes:
+  vessel_pg_data:

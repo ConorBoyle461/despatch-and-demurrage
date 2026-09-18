@@ -1,0 +1,818 @@
+{
+  "title": "Despatch and Demurrage",
+  "uid": "despatch-and-demurrage",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "time": {
+    "from": "now-90d",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Total Net Weight (t)",
+      "datasource": {
+        "type": "postgres",
+        "uid": "afxbuc9yby1ogd"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "afxbuc9yby1ogd"
+          },
+          "format": "table",
+          "rawSql": "SELECT SUM(net_weight) FROM tickets WHERE site IN (${site:sqlstring}) AND voyage IN (${voyage:sqlstring}) AND ticket_type IN (${ticket_type:sqlstring})",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Dispatch (OUT) Net Weight (t)",
+      "datasource": {
+        "type": "postgres",
+        "uid": "afxbuc9yby1ogd"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "afxbuc9yby1ogd"
+          },
+          "format": "table",
+          "rawSql": "SELECT COALESCE(SUM(net_weight),0) FROM tickets WHERE site IN (${site:sqlstring}) AND voyage IN (${voyage:sqlstring}) AND ticket_type IN (${ticket_type:sqlstring}) AND ticket_type = 'OUT'",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Demurrage (VESSEL-IN) Net Weight (t)",
+      "datasource": {
+        "type": "postgres",
+        "uid": "afxbuc9yby1ogd"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "afxbuc9yby1ogd"
+          },
+          "format": "table",
+          "rawSql": "SELECT COALESCE(SUM(net_weight),0) FROM tickets WHERE site IN (${site:sqlstring}) AND voyage IN (${voyage:sqlstring}) AND ticket_type IN (${ticket_type:sqlstring}) AND ticket_type = 'VESSEL-IN'",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Total Weighbridge Crossings",
+      "datasource": {
+        "type": "postgres",
+        "uid": "afxbuc9yby1ogd"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "afxbuc9yby1ogd"
+          },
+          "format": "table",
+          "rawSql": "SELECT COUNT(*) FROM tickets WHERE site IN (${site:sqlstring}) AND voyage IN (${voyage:sqlstring}) AND ticket_type IN (${ticket_type:sqlstring})",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Active Trucks",
+      "datasource": {
+        "type": "postgres",
+        "uid": "afxbuc9yby1ogd"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "afxbuc9yby1ogd"
+          },
+          "format": "table",
+          "rawSql": "SELECT COUNT(DISTINCT vehicle_num) FROM tickets WHERE site IN (${site:sqlstring}) AND voyage IN (${voyage:sqlstring}) AND ticket_type IN (${ticket_type:sqlstring})",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Avg Cycle Time (min)",
+      "datasource": {
+        "type": "postgres",
+        "uid": "afxbuc9yby1ogd"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "afxbuc9yby1ogd"
+          },
+          "format": "table",
+          "rawSql": "SELECT AVG(cycle_seconds)/60.0 FROM tickets WHERE site IN (${site:sqlstring}) AND voyage IN (${voyage:sqlstring}) AND ticket_type IN (${ticket_type:sqlstring})",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Net Weight per Crossing Over Time",
+      "datasource": {
+        "type": "postgres",
+        "uid": "afxbuc9yby1ogd"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "afxbuc9yby1ogd"
+          },
+          "format": "time_series",
+          "rawSql": "SELECT date_time2 AS time, ticket_type AS metric, net_weight AS value\n        FROM tickets\n        WHERE site IN (${site:sqlstring}) AND voyage IN (${voyage:sqlstring}) AND ticket_type IN (${ticket_type:sqlstring}) AND $__timeFilter(date_time2)\n        ORDER BY date_time2",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "auto",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Cumulative Net Weight",
+      "datasource": {
+        "type": "postgres",
+        "uid": "afxbuc9yby1ogd"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "afxbuc9yby1ogd"
+          },
+          "format": "time_series",
+          "rawSql": "SELECT date_time2 AS time, ticket_type AS metric,\n               SUM(net_weight) OVER (PARTITION BY ticket_type ORDER BY date_time2) AS value\n        FROM tickets\n        WHERE site IN (${site:sqlstring}) AND voyage IN (${voyage:sqlstring}) AND ticket_type IN (${ticket_type:sqlstring}) AND $__timeFilter(date_time2)\n        ORDER BY date_time2",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "auto",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 9,
+      "type": "barchart",
+      "title": "Net Weight by Site (t)",
+      "datasource": {
+        "type": "postgres",
+        "uid": "afxbuc9yby1ogd"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "afxbuc9yby1ogd"
+          },
+          "format": "table",
+          "rawSql": "SELECT site AS metric, SUM(net_weight) AS value\n        FROM tickets WHERE site IN (${site:sqlstring}) AND voyage IN (${voyage:sqlstring}) AND ticket_type IN (${ticket_type:sqlstring})\n        GROUP BY site ORDER BY value DESC",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "xField": "metric"
+      }
+    },
+    {
+      "id": 10,
+      "type": "barchart",
+      "title": "Crossings by Site",
+      "datasource": {
+        "type": "postgres",
+        "uid": "afxbuc9yby1ogd"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 12,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "afxbuc9yby1ogd"
+          },
+          "format": "table",
+          "rawSql": "SELECT site AS metric, COUNT(*) AS value\n        FROM tickets WHERE site IN (${site:sqlstring}) AND voyage IN (${voyage:sqlstring}) AND ticket_type IN (${ticket_type:sqlstring})\n        GROUP BY site ORDER BY value DESC",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "options": {
+        "xField": "metric"
+      }
+    },
+    {
+      "id": 11,
+      "type": "barchart",
+      "title": "Avg Cycle Time by Site (min)",
+      "datasource": {
+        "type": "postgres",
+        "uid": "afxbuc9yby1ogd"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 12,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "afxbuc9yby1ogd"
+          },
+          "format": "table",
+          "rawSql": "SELECT site AS metric, AVG(cycle_seconds)/60.0 AS value\n        FROM tickets WHERE site IN (${site:sqlstring}) AND voyage IN (${voyage:sqlstring}) AND ticket_type IN (${ticket_type:sqlstring})\n        GROUP BY site ORDER BY value DESC",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "xField": "metric"
+      }
+    },
+    {
+      "id": 12,
+      "type": "barchart",
+      "title": "Net Weight by Truck (t) \u2014 Top 15",
+      "datasource": {
+        "type": "postgres",
+        "uid": "afxbuc9yby1ogd"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 6,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "afxbuc9yby1ogd"
+          },
+          "format": "table",
+          "rawSql": "SELECT vehicle_num AS metric, SUM(net_weight) AS value\n        FROM tickets WHERE site IN (${site:sqlstring}) AND voyage IN (${voyage:sqlstring}) AND ticket_type IN (${ticket_type:sqlstring}) AND vehicle_num IN (\n    SELECT vehicle_num FROM tickets\n    WHERE site IN (${site:sqlstring}) AND voyage IN (${voyage:sqlstring}) AND ticket_type IN (${ticket_type:sqlstring})\n    GROUP BY vehicle_num\n    ORDER BY COUNT(*) DESC\n    LIMIT 15\n)\n        GROUP BY vehicle_num ORDER BY value DESC",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "xField": "metric"
+      }
+    },
+    {
+      "id": 13,
+      "type": "barchart",
+      "title": "Crossings by Truck \u2014 Top 15",
+      "datasource": {
+        "type": "postgres",
+        "uid": "afxbuc9yby1ogd"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 20,
+        "w": 6,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "afxbuc9yby1ogd"
+          },
+          "format": "table",
+          "rawSql": "SELECT vehicle_num AS metric, COUNT(*) AS value\n        FROM tickets WHERE site IN (${site:sqlstring}) AND voyage IN (${voyage:sqlstring}) AND ticket_type IN (${ticket_type:sqlstring}) AND vehicle_num IN (\n    SELECT vehicle_num FROM tickets\n    WHERE site IN (${site:sqlstring}) AND voyage IN (${voyage:sqlstring}) AND ticket_type IN (${ticket_type:sqlstring})\n    GROUP BY vehicle_num\n    ORDER BY COUNT(*) DESC\n    LIMIT 15\n)\n        GROUP BY vehicle_num ORDER BY value DESC",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "options": {
+        "xField": "metric"
+      }
+    },
+    {
+      "id": 14,
+      "type": "barchart",
+      "title": "Avg Cycle Time by Truck (min) \u2014 Top 15",
+      "datasource": {
+        "type": "postgres",
+        "uid": "afxbuc9yby1ogd"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 20,
+        "w": 6,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "afxbuc9yby1ogd"
+          },
+          "format": "table",
+          "rawSql": "SELECT vehicle_num AS metric, AVG(cycle_seconds)/60.0 AS value\n        FROM tickets WHERE site IN (${site:sqlstring}) AND voyage IN (${voyage:sqlstring}) AND ticket_type IN (${ticket_type:sqlstring}) AND vehicle_num IN (\n    SELECT vehicle_num FROM tickets\n    WHERE site IN (${site:sqlstring}) AND voyage IN (${voyage:sqlstring}) AND ticket_type IN (${ticket_type:sqlstring})\n    GROUP BY vehicle_num\n    ORDER BY COUNT(*) DESC\n    LIMIT 15\n)\n        GROUP BY vehicle_num ORDER BY value DESC",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "xField": "metric"
+      }
+    },
+    {
+      "id": 15,
+      "type": "barchart",
+      "title": "Avg Net Weight per Tip by Truck (t) \u2014 Top 15",
+      "datasource": {
+        "type": "postgres",
+        "uid": "afxbuc9yby1ogd"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 20,
+        "w": 6,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "afxbuc9yby1ogd"
+          },
+          "format": "table",
+          "rawSql": "SELECT vehicle_num AS metric, AVG(net_weight) AS value\n        FROM tickets WHERE site IN (${site:sqlstring}) AND voyage IN (${voyage:sqlstring}) AND ticket_type IN (${ticket_type:sqlstring}) AND vehicle_num IN (\n    SELECT vehicle_num FROM tickets\n    WHERE site IN (${site:sqlstring}) AND voyage IN (${voyage:sqlstring}) AND ticket_type IN (${ticket_type:sqlstring})\n    GROUP BY vehicle_num\n    ORDER BY COUNT(*) DESC\n    LIMIT 15\n)\n        GROUP BY vehicle_num ORDER BY value DESC",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "xField": "metric"
+      }
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "Cycle Time per Crossing (min) \u2014 flag > 30min",
+      "datasource": {
+        "type": "postgres",
+        "uid": "afxbuc9yby1ogd"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "afxbuc9yby1ogd"
+          },
+          "format": "time_series",
+          "rawSql": "SELECT date_time2 AS time, site AS metric, cycle_seconds/60.0 AS value\n        FROM tickets\n        WHERE site IN (${site:sqlstring}) AND voyage IN (${voyage:sqlstring}) AND ticket_type IN (${ticket_type:sqlstring}) AND $__timeFilter(date_time2)\n        ORDER BY date_time2",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 30
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 17,
+      "type": "state-timeline",
+      "title": "Weighbridge Activity by Truck \u2014 Top 15",
+      "datasource": {
+        "type": "postgres",
+        "uid": "afxbuc9yby1ogd"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 36,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "afxbuc9yby1ogd"
+          },
+          "format": "time_series",
+          "rawSql": "SELECT date_time AS time, vehicle_num AS metric, 'At weighbridge' AS value\n        FROM tickets WHERE site IN (${site:sqlstring}) AND voyage IN (${voyage:sqlstring}) AND ticket_type IN (${ticket_type:sqlstring}) AND vehicle_num IN (\n    SELECT vehicle_num FROM tickets\n    WHERE site IN (${site:sqlstring}) AND voyage IN (${voyage:sqlstring}) AND ticket_type IN (${ticket_type:sqlstring})\n    GROUP BY vehicle_num\n    ORDER BY COUNT(*) DESC\n    LIMIT 15\n)\n        UNION ALL\n        SELECT date_time2 AS time, vehicle_num AS metric, 'Idle' AS value\n        FROM tickets WHERE site IN (${site:sqlstring}) AND voyage IN (${voyage:sqlstring}) AND ticket_type IN (${ticket_type:sqlstring}) AND vehicle_num IN (\n    SELECT vehicle_num FROM tickets\n    WHERE site IN (${site:sqlstring}) AND voyage IN (${voyage:sqlstring}) AND ticket_type IN (${ticket_type:sqlstring})\n    GROUP BY vehicle_num\n    ORDER BY COUNT(*) DESC\n    LIMIT 15\n)\n        ORDER BY time",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "mergeValues": true,
+        "showValue": "never"
+      }
+    },
+    {
+      "id": 18,
+      "type": "timeseries",
+      "title": "Net Weight & Cycle Time per Tip, by Truck \u2014 Top 15",
+      "datasource": {
+        "type": "postgres",
+        "uid": "afxbuc9yby1ogd"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 44,
+        "w": 24,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "afxbuc9yby1ogd"
+          },
+          "format": "time_series",
+          "rawSql": "SELECT date_time2 AS time,\n                        vehicle_num || ' - weight (t)' AS metric,\n                        net_weight AS value\n                 FROM tickets\n                 WHERE site IN (${site:sqlstring}) AND voyage IN (${voyage:sqlstring}) AND ticket_type IN (${ticket_type:sqlstring}) AND vehicle_num IN (\n    SELECT vehicle_num FROM tickets\n    WHERE site IN (${site:sqlstring}) AND voyage IN (${voyage:sqlstring}) AND ticket_type IN (${ticket_type:sqlstring})\n    GROUP BY vehicle_num\n    ORDER BY COUNT(*) DESC\n    LIMIT 15\n)\n                       AND $__timeFilter(date_time2)\n                 ORDER BY date_time2",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "afxbuc9yby1ogd"
+          },
+          "format": "time_series",
+          "rawSql": "SELECT date_time2 AS time,\n                         vehicle_num || ' - cycle (min)' AS metric,\n                         cycle_seconds/60.0 AS value\n                  FROM tickets\n                  WHERE site IN (${site:sqlstring}) AND voyage IN (${voyage:sqlstring}) AND ticket_type IN (${ticket_type:sqlstring}) AND vehicle_num IN (\n    SELECT vehicle_num FROM tickets\n    WHERE site IN (${site:sqlstring}) AND voyage IN (${voyage:sqlstring}) AND ticket_type IN (${ticket_type:sqlstring})\n    GROUP BY vehicle_num\n    ORDER BY COUNT(*) DESC\n    LIMIT 15\n)\n                        AND $__timeFilter(date_time2)\n                  ORDER BY date_time2",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*cycle.*"
+            },
+            "properties": [
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "unit",
+                "value": "m"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 19,
+      "type": "table",
+      "title": "Data Quality Flags",
+      "datasource": {
+        "type": "postgres",
+        "uid": "afxbuc9yby1ogd"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 53,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "afxbuc9yby1ogd"
+          },
+          "format": "table",
+          "rawSql": "SELECT site, ticket, vehicle_num, voyage, ticket_type, date_time, date_time2,\n               weight1, weight2, net_weight,\n               ROUND((cycle_seconds/60.0)::numeric, 1) AS cycle_minutes,\n               ROUND(weight_mismatch::numeric, 2) AS weight_mismatch,\n               cycle_time_reversed\n        FROM tickets\n        WHERE site IN (${site:sqlstring}) AND voyage IN (${voyage:sqlstring}) AND ticket_type IN (${ticket_type:sqlstring})\n          AND (\n                weight_mismatch > 0.01\n             OR cycle_seconds > 1800\n             OR net_weight < 10\n             OR cycle_time_reversed\n          )\n        ORDER BY date_time",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "site",
+        "type": "query",
+        "datasource": {
+          "type": "postgres",
+          "uid": "afxbuc9yby1ogd"
+        },
+        "query": "SELECT DISTINCT site FROM tickets ORDER BY 1",
+        "refresh": 1,
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      },
+      {
+        "name": "voyage",
+        "type": "query",
+        "datasource": {
+          "type": "postgres",
+          "uid": "afxbuc9yby1ogd"
+        },
+        "query": "SELECT DISTINCT voyage FROM tickets WHERE site IN (${site:sqlstring}) ORDER BY 1",
+        "refresh": 1,
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      },
+      {
+        "name": "ticket_type",
+        "type": "query",
+        "datasource": {
+          "type": "postgres",
+          "uid": "afxbuc9yby1ogd"
+        },
+        "query": "SELECT DISTINCT ticket_type FROM tickets ORDER BY 1",
+        "refresh": 1,
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      }
+    ]
+  }
+}
