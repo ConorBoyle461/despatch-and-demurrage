@@ -1,0 +1,8 @@
+# Grafana service account token (see SETUP.md)
+.env
+
+# Raw site exports hold commercial data; load them locally, never commit them
+*.xlsx
+*.csv
+
+__pycache__/

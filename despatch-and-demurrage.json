@@ -788,14 +788,15 @@
           "type": "postgres",
           "uid": "afxbuc9yby1ogd"
         },
-        "query": "SELECT DISTINCT voyage FROM tickets WHERE site IN (${site:sqlstring}) ORDER BY 1",
-        "refresh": 1,
+        "query": "SELECT * FROM (SELECT voyage FROM tickets WHERE site IN (${site:sqlstring}) AND voyage IS NOT NULL GROUP BY voyage HAVING MIN(LEAST(date_time, date_time2)) <= $__timeTo() AND MAX(GREATEST(date_time, date_time2)) >= $__timeFrom() ORDER BY 1) v UNION ALL SELECT '(no voyage in window)' WHERE NOT EXISTS (SELECT 1 FROM (SELECT voyage FROM tickets WHERE site IN (${site:sqlstring}) AND voyage IS NOT NULL GROUP BY voyage HAVING MIN(LEAST(date_time, date_time2)) <= $__timeTo() AND MAX(GREATEST(date_time, date_time2)) >= $__timeFrom() ORDER BY 1) e)",
+        "refresh": 2,
         "multi": true,
         "includeAll": true,
         "current": {
           "text": "All",
           "value": "$__all"
-        }
+        },
+        "sort": 1
       },
       {
         "name": "ticket_type",

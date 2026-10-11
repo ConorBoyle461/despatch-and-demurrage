@@ -25,36 +25,35 @@ duplicate rows.
 
 ## Setup
 
+Full walkthrough, including the Grafana token and troubleshooting:
+**[SETUP.md](SETUP.md)**. The short version, once Grafana is running:
+
 ```bash
-# 1. Start Postgres
-docker compose up -d
-
-# 2. Install Python deps
-pip install -r requirements.txt   # add --break-system-packages on Linux
-                                   # distros with a "managed" system Python
-
-# 3. Load ticket exports — one or more files, one per site.
-#    Safe to re-run: rows are upserted on (site, ticket).
-python load_data.py /path/to/dublin_august_2026.xlsx \
-                     /path/to/foynes_august_2026.xlsx \
-                     /path/to/lisahally_august_2026.xlsx \
-                     /path/to/ringaskiddy_august_2026.xlsx
-
-# 4. In Grafana: Connections -> Add new connection -> PostgreSQL
-#    host: localhost:5432   db: vessel   user: vessel   password: vessel
-#
-# 5. Import the dashboard: Dashboards -> New -> Import ->
-#    upload grafana/dashboards/despatch-and-demurrage.json
+docker compose up -d                       # Postgres
+pip install -r requirements.txt            # loader dependencies
+python load_data.py /path/to/site1.xlsx /path/to/site2.xlsx ...
+cp .env.example .env                       # then paste a Grafana service account token in
+python generate_dashboard.py && python push_dashboard.py despatch-and-demurrage.json
+python generate_live_dashboard.py && python push_dashboard.py live-operations.json
 ```
 
-The dashboard JSON has the Postgres data source's UID hardcoded (not an
-import-time placeholder) — see "Datasource UID" below for why, and what
-to do if you ever recreate the data source under a different UID.
+Before pushing, add the Postgres data source in Grafana and check its UID
+matches the generators (SETUP.md step 5).
 
-`grafana/provisioning/` contains datasource + dashboard auto-provisioning
-config for a *containerized* Grafana (mount it into `/etc/grafana/provisioning/`).
-If you're running Grafana natively rather than in Docker, step 4/5 above
-(manual add + import) is the simpler path.
+### Files
+
+| File | What it is |
+|---|---|
+| `load_data.py` | Loads site `.xlsx` exports into Postgres (`tickets`), and seeds `bay_capacity` |
+| `generate_dashboard.py` → `despatch-and-demurrage.json` | Historical, multi-voyage trend dashboard |
+| `generate_live_dashboard.py` → `live-operations.json` | Live operations status board |
+| `push_dashboard.py` | Validates a dashboard's queries against Grafana, then deploys it |
+| `docker-compose.yml` | Postgres 16 |
+| `postgres.yml`, `dashboards.yml` | Grafana provisioning files for a containerised Grafana (SETUP.md) |
+| `.env.example` | Template for `.env` (Grafana URL + token, gitignored) |
+
+The dashboard JSON files are generated: change the generator and re-run
+it, never hand-edit the JSON.
 
 ## Data model
 
@@ -89,8 +88,9 @@ instead of `Weight3`. `load_data.py` detects and normalizes this per file.
 ## Dashboard
 
 19 panels. Three filter variables — **site**, **voyage** (chained: its
-option list narrows to whichever sites are selected), **ticket type**
-(`OUT` / `VESSEL-IN`) — apply to every panel.
+option list narrows to whichever sites are selected, and to voyages that
+were in progress at some point during the picked time range), **ticket
+type** (`OUT` / `VESSEL-IN`) — apply to every panel.
 
 - **KPIs**: total net weight, split into dispatch (OUT) and demurrage
   (VESSEL-IN) totals, total crossings, active trucks, avg cycle time.
@@ -174,3 +174,200 @@ directly if you need to quantify it.
   against the new schema — see the comment above `DROP_OLD_TABLE_SQL` in
   that file. This never touches real site data loaded under the current
   schema.
+
+## Live operations dashboard
+
+`generate_live_dashboard.py` builds a **second, separate** dashboard
+(`live-operations.json`) modeled directly on a "Ringaskiddy Discharge
+Operations" status-board mockup — a live, single-voyage snapshot rather
+than the historical multi-voyage trend view `despatch-and-demurrage.json`
+provides. Both dashboards stay in the repo; this doesn't replace the
+other one. Deploy it with `push_dashboard.py` (SETUP.md step 8); a hand
+import works too, minus the per-voyage truck filtering described below.
+
+Originally a single-voyage board; `voyage` is now multi-select like the
+other filters, defaulting to **All voyages** currently in scope. Narrow
+it to one voyage the way you'd narrow any other filter. Auto-refreshes
+every minute. With "All" selected, the header (Site/Vessel Name) rolls
+up across every selected voyage (comma-separated / aggregated) rather
+than assuming exactly one.
+
+**Filters**: `site`, `voyage`, `ticket_type`, `bay`, and `vehicle`, all
+chained (each narrows the ones below it: site → voyage; site + voyage →
+bay; site + voyage + ticket_type + bay → vehicle) and all defaulting to
+"All" so nothing is excluded until you narrow one. Not every filter
+touches every panel — see the per-panel notes below.
+
+The `voyage` list also follows the time picker: a voyage is listed only
+if its span (first ticket opened → last ticket closed) overlaps the
+picked range, so a "today" window lists only voyages active today, and
+an empty list means nothing was running in that window.
+
+**Panels**, top to bottom:
+- Header (site, vessel name, commodity) — voyage-scoped only, not
+  affected by the other filters. Built as `table` panels with the header
+  row hidden (not `stat` panels) — see the note below on why.
+- **Per-voyage truck sections** — a "Voyage …" section per voyage
+  active in the picked window, each holding one line per truck that
+  worked **that voyage** in the window, two panels side by side:
+  - a summary panel titled with the licence plate, showing 4
+    background-coloured tiles (tons moved in the window, avg tons/hr,
+    avg tips/hr, minutes since last tip). Tons has no natural good/bad
+    band, so it's a flat blue; the other three use a 3-band
+    (red/amber/green) version of the Truck Performance table's
+    thresholds — see Thresholds.
+  - a time series of that truck's tips: each tip's net weight as a bar,
+    and the running total as a line on the right axis.
+
+  Classic Grafana repeats can't nest (a truck repeat inside a voyage
+  repeat lists every truck in every voyage), so this relies on Grafana's
+  newer dashboard layout (`dashboardNewLayouts`, on in this instance),
+  where a row can carry its own variables that are re-queried per
+  repeated copy. `push_dashboard.py` uploads the classic JSON, then moves
+  the hidden truck-list variable onto the voyage row through the v2
+  dashboard API (driven by the `x-row-variables` key in the generated
+  JSON). **Import the JSON by hand instead and the board still works,
+  but each voyage section lists every active truck**, with "–" tiles for
+  trucks not on that voyage — use the script.
+The sections below the voyage sections sit under a single
+"Trucks, stores & vessels" heading:
+- **Truck Performance** table — tons/tips/rate today vs. for the whole
+  voyage, colour-coded against thresholds (see below). Honours all five
+  filters.
+- **Truck Tips Through Time** — a time series of every individual tip
+  (net weight per crossing), one line per truck. Honours all five
+  filters; narrow the vehicle filter if a busy site makes this crowded.
+- **Store (by bay)** table and its bar-gauge equivalent (**Store Bay
+  Fill**) — per store: name, storage used, max capacity and % full
+  (a gauge column in the table; each bar labelled
+  `store · used / max t`). Grouped by site and bay, since some bay codes
+  exist at more than one site. Always
+  `VESSEL-IN` only (that's what "Store" means here) regardless of the
+  `ticket_type` filter; honours site, vehicle and bay.
+- **Vessel (loading)** table and its bar-chart equivalent (**Vessel
+  Loading**) — per-vessel loaded tonnage, no hatch split. Always `OUT`
+  only regardless of the `ticket_type` filter; honours site and vehicle,
+  not bay (a vessel's location field is a vessel name, not a bay code).
+
+**Why the header tiles are `table` panels, not `stat` panels**: every
+`stat` panel elsewhere on this board aggregates to a plain number (a
+sum, count, or average). Site/Vessel Name/Commodity aggregate to *text*
+(`string_agg`, `regexp_replace`) — and in this Grafana instance, `stat`
+panels showed "No Data" for a text-only result even though the identical
+filtering logic works fine in a `table` panel (confirmed against the
+Truck Performance table, which mixes text and numeric columns and
+renders correctly). Rather than chase the exact cause inside Grafana's
+Stat panel internals, these three were switched to `table` panels with
+the header row and grid lines hidden, which reads the same as a stat
+tile but is proven to work here.
+
+### Gaps versus the original mockup, and how they're handled
+
+The mockup asked for more than the weighbridge export actually contains.
+Rather than fake data to fill the gaps, each one is either downgraded to
+what's actually derivable or left visibly incomplete:
+
+- **No hatch numbers anywhere in the source data.** The mockup's "Vessel"
+  table is a per-hatch breakdown of cargo loaded onto a vessel (dispatch
+  / `OUT` tickets). None of the four site exports record a hatch number
+  — `OUT` tickets only give a vessel name (parsed out of the
+  `Loading/Tipping Location` field, which for `OUT` tickets reads like
+  `"EQUINOX EAGLE - VOY.000549"`). The Vessel table is downgraded to a
+  per-**vessel** rollup (tons loaded, tip count) with no hatch split.
+- **No bay/vessel capacity data anywhere in the source data** — this is
+  a fixed physical number (how big is bay S1) that a transaction log
+  never records. `load_data.py` seeds a `bay_capacity` table
+  (`site, bay, max_capacity, store_name`) with a **placeholder default of 5000t** the
+  first time each `(site, bay)` pair is seen in a `VESSEL-IN` ticket
+  (`ON CONFLICT DO NOTHING`, so a value you've since corrected is never
+  overwritten by a reload). Edit it directly in Postgres with real
+  figures:
+  ```sql
+  UPDATE bay_capacity SET max_capacity = 4800, store_name = 'South Store 1'
+  WHERE site = 'RIN' AND bay = 'S1';
+  ```
+  Store names aren't in the exports either (only bay codes), so
+  `store_name` starts empty and the dashboard shows the bay code until
+  you set one. The Store table shows store, storage used, max capacity
+  and a fill gauge; the fill bar chart labels each bar
+  `store · used / max t`. Until real capacities are entered, busy bays
+  can read **over 100%** full — that's the placeholder telling you it's
+  wrong, not a bug. There's no equivalent capacity figure for
+  the Vessel table (a vessel's total hold capacity), so it only shows
+  tons loaded, not a remaining-capacity column.
+- **Most voyages have no vessel name available at all.** Vessel name is
+  only derivable from `OUT` tickets' location field. Most voyages in the
+  initial load are pure discharge (`VESSEL-IN` only, confirmed against
+  the real data — e.g. 8 of Ringaskiddy's 11 voyages have zero `OUT`
+  tickets), so for those the header falls back to a plain note rather
+  than guessing a name from nothing.
+### Point-in-time reconstruction
+
+The dashboard's time range picker (top-right corner) isn't just for
+scoping the "today" columns — it drives the whole board. Set its **end
+("To")** to a moment in the past and every panel reconstructs what the
+board would have shown at that moment, not what it looks like now:
+
+- **Truck Performance**'s "vessel total" columns (`Tons (vessel)`,
+  `Avg t/hr (vessel)`) and **Last Tip (mins)** only count tickets up to
+  the picked "To" time, and "Last Tip" is measured from that time, not
+  from real wall-clock `NOW()`.
+- **Store (by bay)** and **Vessel (loading)** only sum tickets up to the
+  same "To" time.
+- The "today" columns (`Tons today`, `Avg t/hr today`, `Tips/hr today`)
+  already respected the full picked range (`$__timeFilter`); that
+  behaviour is unchanged.
+
+Leave the time range at its default (ending "now") and this behaves
+exactly like a live board — `$__timeTo()` just resolves to the actual
+current time. To look at a finished historical voyage as it stood at a
+specific hour, first set the time range (the `voyage` dropdown only
+lists voyages active in the picked window), then pick that voyage —
+e.g. a range like `2026-06-14 00:00:00` to
+`2026-06-14 14:30:00` — the board shows exactly what would have been on
+screen at 14:30 that day, including a truck's "last tip" gap measured
+from that same 14:30, not from today.
+
+### Thresholds
+
+Colour thresholds on the Truck Performance table are calibrated against
+the real combined dataset (178 truck-voyage groups with a usable
+activity span), **not** copied from the mockup's illustrative numbers,
+which are specific to one example vessel/commodity and aren't a general
+target:
+
+| Metric | Red when | Basis |
+|---|---|---|
+| Avg Tons/hr (today & vessel total) | < 25 t/hr | ~p25 of real tons/hr (p10 4.7, p25 21.1, p50 49.1, p75 77.3, p90 114.0) |
+| Avg Tips/hr (today) | < 1.0 tips/hr | ~p25 of real tips/hr (p10 0.13, p25 0.8, p50 1.76, p75 2.99, p90 3.67) |
+| Last Tip (mins) | > 60 min | sits between p90 (50.4 min) and p95 (77.4 min) of real inter-tip gaps |
+
+The tiles on each truck's summary panel use a 3-band (red/amber/green)
+version of these same three, with the median as the amber→green
+breakpoint (so "green" means at/above what a typical truck actually
+does, not merely "not terrible"):
+
+| Tile | Red when | Amber when | Green when |
+|---|---|---|---|
+| Avg Tons/hr | < 25 t/hr | 25–49 t/hr | ≥ 49 t/hr (p50) |
+| Avg Tips/hr | < 1.0 tips/hr | 1.0–1.76 tips/hr | ≥ 1.76 tips/hr (p50) |
+| Last Tip (mins) | ≥ 60 min | 30–60 min | < 30 min |
+
+One further threshold, calibrated by construction rather than against
+the dataset's own percentiles (there's no equivalent "real" distribution
+for a fill percentage — it's relative to whatever bay capacity is on
+screen):
+
+| Panel | Amber when | Red when | Basis |
+|---|---|---|---|
+| Store Bay Fill (% of capacity) | ≥ 80% | ≥ 100% | standard "getting full" / "over capacity" bands; only as meaningful as the underlying `max_capacity` figure — see the placeholder-capacity note above |
+
+These are starting points based on what this initial dataset actually
+looks like, not calibrated operational targets — adjust the constants
+near the top of `generate_live_dashboard.py`
+(`TONS_PER_HR_RED_BELOW`, `TIPS_PER_HR_RED_BELOW`,
+`LAST_TIP_RED_ABOVE_MIN`, `TONS_PER_HR_AMBER_TO_GREEN`,
+`TIPS_PER_HR_AMBER_TO_GREEN`, `LAST_TIP_AMBER_AT_MIN`,
+`BAY_FILL_AMBER_AT`, `BAY_FILL_RED_AT`) once
+you know what "good" actually means for your operation, and re-run the
+script.

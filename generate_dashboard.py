@@ -22,6 +22,17 @@ import json
 
 DS = {"type": "postgres", "uid": "afxbuc9yby1ogd"}
 
+def with_placeholder(query, label):
+    """Make a variable query return a single placeholder value instead of
+    nothing. An empty multi-select left on "All" expands to `IN ()`, which
+    is a Postgres syntax error that breaks every chained variable and panel
+    below it; IN ('<placeholder>') is valid SQL that matches no rows, and
+    the dropdown says why it's empty. Option order comes from the variable's
+    "sort" setting, since ORDER BY inside the subquery isn't preserved."""
+    return (f"SELECT * FROM ({query}) v "
+            f"UNION ALL SELECT '{label}' WHERE NOT EXISTS (SELECT 1 FROM ({query}) e)")
+
+
 FILTER = ("site IN (${site:sqlstring}) "
           "AND voyage IN (${voyage:sqlstring}) "
           "AND ticket_type IN (${ticket_type:sqlstring})")
@@ -356,9 +367,22 @@ dashboard = {
                 "name": "voyage",
                 "type": "query",
                 "datasource": DS,
-                # Chained: re-queries automatically whenever $site changes.
-                "query": "SELECT DISTINCT voyage FROM tickets WHERE site IN (${site:sqlstring}) ORDER BY 1",
-                "refresh": 1,
+                # Chained on $site, and limited to voyages that were in
+                # progress at some point during the picked time range: a
+                # voyage's span runs from its first ticket opening to its
+                # last ticket closing, and it's listed if that span overlaps
+                # the window at all (started before the window ends AND
+                # finished after it starts). LEAST/GREATEST cover the
+                # handful of tickets whose Date+Time2 precedes Date+Time.
+                # "refresh": 2 (on time range change) so the list follows
+                # the time picker, not just dashboard load.
+                "query": ("SELECT voyage FROM tickets "
+                          "WHERE site IN (${site:sqlstring}) AND voyage IS NOT NULL "
+                          "GROUP BY voyage "
+                          "HAVING MIN(LEAST(date_time, date_time2)) <= $__timeTo() "
+                          "AND MAX(GREATEST(date_time, date_time2)) >= $__timeFrom() "
+                          "ORDER BY 1"),
+                "refresh": 2,
                 "multi": True,
                 "includeAll": True,
                 "current": {"text": "All", "value": "$__all"},
@@ -376,6 +400,13 @@ dashboard = {
         ]
     },
 }
+
+# The voyage list follows the time picker, so it can come back empty;
+# see with_placeholder. sort: 1 = alphabetical asc.
+for v in dashboard["templating"]["list"]:
+    if v["name"] == "voyage":
+        v["query"] = with_placeholder(v["query"], "(no voyage in window)")
+        v["sort"] = 1
 
 with open("despatch-and-demurrage.json", "w") as f:
     json.dump(dashboard, f, indent=2)

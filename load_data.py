@@ -66,6 +66,31 @@ CREATE TABLE IF NOT EXISTS tickets (
 );
 """
 
+# Each bay's max capacity is a fixed physical constant that never appears
+# in a weighbridge ticket, so it lives in its own reference table. Every
+# VESSEL-IN bay seen in the data gets a placeholder row (5000t) the first
+# time it appears; ON CONFLICT DO NOTHING means re-running the loader never
+# overwrites a real figure you've since entered by hand. store_name is the
+# same story: the exports only carry a bay code, so it's left NULL for you
+# to fill in, and the dashboard shows the bay code until you do.
+CREATE_BAY_CAPACITY_SQL = """
+CREATE TABLE IF NOT EXISTS bay_capacity (
+    site         TEXT NOT NULL,
+    bay          TEXT NOT NULL,
+    max_capacity DOUBLE PRECISION NOT NULL DEFAULT 5000,
+    store_name   TEXT,
+    PRIMARY KEY (site, bay)
+);
+ALTER TABLE bay_capacity ADD COLUMN IF NOT EXISTS store_name TEXT;
+"""
+
+SEED_BAY_CAPACITY_SQL = """
+INSERT INTO bay_capacity (site, bay)
+SELECT DISTINCT site, location FROM tickets
+WHERE ticket_type = 'VESSEL-IN' AND location IS NOT NULL
+ON CONFLICT (site, bay) DO NOTHING;
+"""
+
 UPSERT_SQL = """
 INSERT INTO tickets (
     site, ticket, voyage, ticket_type, trailer_num, vehicle_num, equipment,
@@ -124,11 +149,20 @@ def parse_file(path: str) -> pd.DataFrame:
     # Coerce ID-like columns to plain strings. Vehicle/trailer regs mix
     # letters and digits so this is mostly a no-op, but pandas will infer
     # a numeric dtype for a column if every value in one file happens to
-    # look numeric, which then blows up type consistency once concatenated
-    # with a file where the same column has letters.
+    # look numeric (e.g. an all-digit trailer number), which then either
+    # mangles the value (leading zeros dropped, ".0" appended) or breaks
+    # type consistency once concatenated with a file where the same
+    # column has letters.
+    #
+    # Deliberately NOT using pandas' nullable "string" dtype here
+    # (df[c].astype("string")) — that extension dtype needs pandas >= 1.0
+    # and raises `TypeError: data type 'string' not understood` on older
+    # installs (numpy's dtype resolver gets asked to make sense of it and
+    # fails). object dtype + an explicit per-value str() cast works
+    # identically for our purposes on any pandas version.
     for c in ("site", "ticket", "voyage", "ticket_type", "trailer_num",
               "vehicle_num", "equipment", "item_number", "location"):
-        df[c] = df[c].astype("string")
+        df[c] = df[c].apply(lambda v: None if pd.isna(v) else str(v))
 
     df["net_weight"] = (df["weight1"] - df["weight2"]).abs()
     df["weight_mismatch"] = (df["net_weight"] - df["net_weight_reported"]).abs()
@@ -142,6 +176,13 @@ def parse_file(path: str) -> pd.DataFrame:
             "weight1", "weight2", "net_weight_reported", "net_weight",
             "weight_mismatch", "cycle_seconds", "cycle_time_reversed"]
     return df[cols]
+
+
+def seed_bay_capacity(engine) -> int:
+    """Create bay_capacity if missing and add placeholder rows for new bays."""
+    with engine.begin() as conn:
+        conn.execute(text(CREATE_BAY_CAPACITY_SQL))
+        return conn.execute(text(SEED_BAY_CAPACITY_SQL)).rowcount
 
 
 def main():
@@ -181,6 +222,7 @@ def main():
         total += len(df)
 
     print(f"Total: {total} rows across {len(sys.argv) - 1} file(s).")
+    print(f"bay_capacity: {seed_bay_capacity(engine)} new bay(s) seeded at 5000t placeholder.")
 
 
 if __name__ == "__main__":

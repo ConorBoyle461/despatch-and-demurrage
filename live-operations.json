@@ -1,0 +1,1092 @@
+{
+  "title": "Live Operations",
+  "uid": "live-operations",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "time": {
+    "from": "now/d",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "refresh": "1m",
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 2
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "# Live Discharge / Dispatch Operations \u2014 Voyage(s) $voyage"
+      }
+    },
+    {
+      "id": 2,
+      "type": "table",
+      "title": "Site",
+      "datasource": {
+        "type": "postgres",
+        "uid": "afxbuc9yby1ogd"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 2,
+        "w": 4,
+        "h": 3
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "afxbuc9yby1ogd"
+          },
+          "format": "table",
+          "rawSql": "SELECT string_agg(DISTINCT site, ', ' ORDER BY site) AS site\n        FROM tickets WHERE voyage IN (${voyage:sqlstring})",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": false,
+        "cellHeight": "lg"
+      }
+    },
+    {
+      "id": 3,
+      "type": "table",
+      "title": "Vessel Name",
+      "datasource": {
+        "type": "postgres",
+        "uid": "afxbuc9yby1ogd"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 2,
+        "w": 12,
+        "h": 3
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "afxbuc9yby1ogd"
+          },
+          "format": "table",
+          "rawSql": "SELECT COALESCE(\n            (SELECT string_agg(DISTINCT regexp_replace(location, '\\s*-\\s*VOY\\..*$', ''), ', ' ORDER BY regexp_replace(location, '\\s*-\\s*VOY\\..*$', ''))\n             FROM tickets WHERE voyage IN (${voyage:sqlstring}) AND ticket_type = 'OUT'),\n            '(no OUT tickets on the selected voyage(s) \u2014 vessel name unavailable)'\n        ) AS vessel_name",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": false,
+        "cellHeight": "lg"
+      }
+    },
+    {
+      "id": 4,
+      "type": "table",
+      "title": "Commodity",
+      "datasource": {
+        "type": "postgres",
+        "uid": "afxbuc9yby1ogd"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 2,
+        "w": 8,
+        "h": 3
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "afxbuc9yby1ogd"
+          },
+          "format": "table",
+          "rawSql": "SELECT string_agg(DISTINCT item_number, ', ' ORDER BY item_number) AS commodity\n        FROM tickets WHERE voyage IN (${voyage:sqlstring})",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": false,
+        "cellHeight": "lg"
+      }
+    },
+    {
+      "id": 5,
+      "type": "row",
+      "title": "Voyage $voyage",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 24,
+        "h": 1
+      },
+      "repeat": "voyage"
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "$vehicle_active",
+      "datasource": {
+        "type": "postgres",
+        "uid": "afxbuc9yby1ogd"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 12,
+        "h": 5
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "afxbuc9yby1ogd"
+          },
+          "format": "table",
+          "rawSql": "SELECT\n            COALESCE(ROUND(SUM(net_weight)::numeric, 1), 0) AS tons_today,\n            ROUND((SUM(net_weight) / NULLIF(EXTRACT(EPOCH FROM (MAX(date_time2) - MIN(date_time2)))/3600.0, 0))::numeric, 1) AS tons_hr,\n            ROUND((COUNT(*) / NULLIF(EXTRACT(EPOCH FROM (MAX(date_time2) - MIN(date_time2)))/3600.0, 0))::numeric, 2) AS tips_hr,\n            ROUND((EXTRACT(EPOCH FROM ($__timeTo() - MAX(date_time2)))/60.0)::numeric, 0) AS last_tip_min\n        FROM tickets\n        WHERE site IN (${site:sqlstring})\n          AND voyage IN (${voyage:sqlstring})\n          AND ticket_type IN (${ticket_type:sqlstring})\n          AND location IN (${bay:sqlstring})\n          AND vehicle_num = '$vehicle_active'\n          AND $__timeFilter(date_time2)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "\u2013"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "tons_today"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Tons Today"
+              },
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "blue",
+                      "value": null
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "tons_hr"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Avg Tons/hr"
+              },
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 25
+                    },
+                    {
+                      "color": "green",
+                      "value": 49
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "tips_hr"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Avg Tips/hr"
+              },
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 1.0
+                    },
+                    {
+                      "color": "green",
+                      "value": 1.76
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "last_tip_min"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Last Tip"
+              },
+              {
+                "id": "unit",
+                "value": "m"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 30
+                    },
+                    {
+                      "color": "red",
+                      "value": 60
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "vertical",
+        "textMode": "value_and_name",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "repeat": "vehicle_active",
+      "repeatDirection": "v"
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "$vehicle_active \u2014 tips & running total (t)",
+      "datasource": {
+        "type": "postgres",
+        "uid": "afxbuc9yby1ogd"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 6,
+        "w": 12,
+        "h": 5
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "afxbuc9yby1ogd"
+          },
+          "format": "table",
+          "rawSql": "SELECT date_time2 AS time,\n               net_weight AS tip,\n               SUM(net_weight) OVER (ORDER BY date_time2) AS cumulative\n        FROM tickets\n        WHERE site IN (${site:sqlstring})\n          AND voyage IN (${voyage:sqlstring})\n          AND ticket_type IN (${ticket_type:sqlstring})\n          AND location IN (${bay:sqlstring})\n          AND vehicle_num = '$vehicle_active'\n          AND $__timeFilter(date_time2)\n        ORDER BY date_time2",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 1,
+          "min": 0,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "tip"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Tip (t)"
+              },
+              {
+                "id": "custom.drawStyle",
+                "value": "bars"
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 80
+              },
+              {
+                "id": "custom.barWidthFactor",
+                "value": 0.3
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cumulative"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Running total (t)"
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "repeat": "vehicle_active",
+      "repeatDirection": "v"
+    },
+    {
+      "id": 8,
+      "type": "row",
+      "title": "Trucks, stores & vessels",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 11,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "id": 9,
+      "type": "table",
+      "title": "Truck Performance",
+      "datasource": {
+        "type": "postgres",
+        "uid": "afxbuc9yby1ogd"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 24,
+        "h": 10
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "afxbuc9yby1ogd"
+          },
+          "format": "table",
+          "rawSql": "WITH today AS (\n            SELECT vehicle_num,\n                   SUM(net_weight) AS tons_today,\n                   COUNT(*) AS tips_today,\n                   MIN(date_time2) AS tmin_today,\n                   MAX(date_time2) AS tmax_today\n            FROM tickets\n            WHERE voyage IN (${voyage:sqlstring}) AND site IN (${site:sqlstring}) AND ticket_type IN (${ticket_type:sqlstring}) AND vehicle_num IN (${vehicle:sqlstring}) AND location IN (${bay:sqlstring}) AND $__timeFilter(date_time2)\n            GROUP BY vehicle_num\n        ),\n        overall AS (\n            SELECT vehicle_num,\n                   SUM(net_weight) AS tons_vessel,\n                   MIN(date_time2) AS tmin_all,\n                   MAX(date_time2) AS tmax_all\n            FROM tickets\n            WHERE voyage IN (${voyage:sqlstring}) AND site IN (${site:sqlstring}) AND ticket_type IN (${ticket_type:sqlstring}) AND vehicle_num IN (${vehicle:sqlstring}) AND location IN (${bay:sqlstring}) AND date_time2 <= $__timeTo()\n            GROUP BY vehicle_num\n        )\n        SELECT\n            o.vehicle_num AS vehicle,\n            COALESCE(ROUND(t.tons_today::numeric, 1), 0) AS tons_today,\n            ROUND((t.tons_today / NULLIF(EXTRACT(EPOCH FROM (t.tmax_today - t.tmin_today))/3600.0, 0))::numeric, 1) AS avg_tons_hr_today,\n            ROUND((t.tips_today / NULLIF(EXTRACT(EPOCH FROM (t.tmax_today - t.tmin_today))/3600.0, 0))::numeric, 2) AS tips_hr_today,\n            ROUND((EXTRACT(EPOCH FROM ($__timeTo() - o.tmax_all))/60.0)::numeric, 1) AS last_tip_min,\n            ROUND(o.tons_vessel::numeric, 1) AS tons_vessel,\n            ROUND((o.tons_vessel / NULLIF(EXTRACT(EPOCH FROM (o.tmax_all - o.tmin_all))/3600.0, 0))::numeric, 1) AS avg_tons_hr_vessel\n        FROM overall o\n        LEFT JOIN today t ON t.vehicle_num = o.vehicle_num\n        ORDER BY o.tons_vessel DESC",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "vehicle"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Truck"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "tons_today"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Tons (today)"
+              },
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "avg_tons_hr_today"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Avg Tons/hr (today)"
+              },
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 25
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "tips_hr_today"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Avg Tips/hr (today)"
+              },
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 1.0
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "last_tip_min"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Last Tip (mins)"
+              },
+              {
+                "id": "unit",
+                "value": "m"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 60
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "tons_vessel"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Tons (vessel total)"
+              },
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "avg_tons_hr_vessel"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Avg Tons/hr (vessel total)"
+              },
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 25
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Truck Tips Through Time (net weight per tip)",
+      "datasource": {
+        "type": "postgres",
+        "uid": "afxbuc9yby1ogd"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 22,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "afxbuc9yby1ogd"
+          },
+          "format": "time_series",
+          "rawSql": "SELECT date_time2 AS time, vehicle_num AS metric, net_weight AS value\n        FROM tickets\n        WHERE voyage IN (${voyage:sqlstring}) AND site IN (${site:sqlstring}) AND ticket_type IN (${ticket_type:sqlstring}) AND vehicle_num IN (${vehicle:sqlstring}) AND location IN (${bay:sqlstring}) AND $__timeFilter(date_time2)\n        ORDER BY date_time2",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "showPoints": "always",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "description": "One series per truck (vehicle filter above). Narrow it if this gets crowded."
+    },
+    {
+      "id": 11,
+      "type": "table",
+      "title": "Store (by bay) \u2014 this voyage's discharge",
+      "datasource": {
+        "type": "postgres",
+        "uid": "afxbuc9yby1ogd"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 30,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "afxbuc9yby1ogd"
+          },
+          "format": "table",
+          "rawSql": "SELECT\n            COALESCE(MAX(bc.store_name), t.location) AS store,\n            ROUND(SUM(t.net_weight)::numeric, 1) AS used,\n            MAX(bc.max_capacity) AS max_capacity,\n            ROUND((SUM(t.net_weight) / NULLIF(MAX(bc.max_capacity), 0) * 100)::numeric, 1) AS fill_pct\n        FROM tickets t\n        LEFT JOIN bay_capacity bc ON bc.site = t.site AND bc.bay = t.location\n        WHERE voyage IN (${voyage:sqlstring}) AND t.site IN (${site:sqlstring}) AND t.vehicle_num IN (${vehicle:sqlstring}) AND t.location IN (${bay:sqlstring}) AND t.ticket_type = 'VESSEL-IN' AND t.date_time2 <= $__timeTo()\n        GROUP BY t.site, t.location\n        ORDER BY store",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "store"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Store"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "used"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Storage used (t)"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "max_capacity"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Max capacity (t)"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "fill_pct"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Fill"
+              },
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 80
+                    },
+                    {
+                      "color": "red",
+                      "value": 100
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "description": "Empty when this voyage has no VESSEL-IN (discharge) tickets \u2014 i.e. it's a pure dispatch/loading voyage. Store names and capacities come from the bay_capacity table \u2014 see README."
+    },
+    {
+      "id": 12,
+      "type": "table",
+      "title": "Vessel (loading) \u2014 no hatch-level data available",
+      "datasource": {
+        "type": "postgres",
+        "uid": "afxbuc9yby1ogd"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 30,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "afxbuc9yby1ogd"
+          },
+          "format": "table",
+          "rawSql": "SELECT\n            COALESCE(regexp_replace(location, '\\s*-\\s*VOY\\..*$', ''), location) AS vessel,\n            ROUND(SUM(net_weight)::numeric, 1) AS tons_loaded,\n            COUNT(*) AS tips\n        FROM tickets\n        WHERE voyage IN (${voyage:sqlstring}) AND site IN (${site:sqlstring}) AND vehicle_num IN (${vehicle:sqlstring}) AND ticket_type = 'OUT' AND date_time2 <= $__timeTo()\n        GROUP BY vessel\n        ORDER BY tons_loaded DESC",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "description": "Empty when this voyage has no OUT (dispatch) tickets \u2014 i.e. it's a pure discharge voyage. No hatch-level split: the source data has no hatch field."
+    },
+    {
+      "id": 13,
+      "type": "bargauge",
+      "title": "Store Bay Fill (% of capacity)",
+      "datasource": {
+        "type": "postgres",
+        "uid": "afxbuc9yby1ogd"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 38,
+        "w": 12,
+        "h": 6
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "afxbuc9yby1ogd"
+          },
+          "format": "table",
+          "rawSql": "SELECT\n            COALESCE(MAX(bc.store_name), t.location) || '  \u00b7  ' || ROUND(SUM(t.net_weight)::numeric, 0)\n                || ' / ' || ROUND(MAX(bc.max_capacity)::numeric, 0) || ' t' AS store,\n            ROUND((SUM(t.net_weight) / NULLIF(MAX(bc.max_capacity), 0) * 100)::numeric, 1) AS fill_pct\n        FROM tickets t\n        LEFT JOIN bay_capacity bc ON bc.site = t.site AND bc.bay = t.location\n        WHERE voyage IN (${voyage:sqlstring}) AND t.site IN (${site:sqlstring}) AND t.vehicle_num IN (${vehicle:sqlstring}) AND t.location IN (${bay:sqlstring}) AND t.ticket_type = 'VESSEL-IN' AND t.date_time2 <= $__timeTo()\n        GROUP BY t.site, t.location\n        ORDER BY MIN(t.location)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 120,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 80
+              },
+              {
+                "color": "red",
+                "value": 100
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "showUnfilled": true,
+        "namePlacement": "left",
+        "reduceOptions": {
+          "values": true,
+          "calcs": [],
+          "limit": 100
+        }
+      },
+      "description": "Same figures as the Store table, as a fill gauge. Capacity is the bay_capacity placeholder until corrected \u2014 see README."
+    },
+    {
+      "id": 14,
+      "type": "barchart",
+      "title": "Vessel Loading (tons)",
+      "datasource": {
+        "type": "postgres",
+        "uid": "afxbuc9yby1ogd"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 38,
+        "w": 12,
+        "h": 6
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "afxbuc9yby1ogd"
+          },
+          "format": "table",
+          "rawSql": "SELECT\n            COALESCE(regexp_replace(location, '\\s*-\\s*VOY\\..*$', ''), location) AS vessel,\n            ROUND(SUM(net_weight)::numeric, 1) AS tons_loaded,\n            COUNT(*) AS tips\n        FROM tickets\n        WHERE voyage IN (${voyage:sqlstring}) AND site IN (${site:sqlstring}) AND vehicle_num IN (${vehicle:sqlstring}) AND ticket_type = 'OUT' AND date_time2 <= $__timeTo()\n        GROUP BY vessel\n        ORDER BY tons_loaded DESC",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "xField": "metric"
+      },
+      "description": "Same figures as the Vessel table, as a bar chart. Empty on pure-discharge voyages."
+    }
+  ],
+  "x-row-variables": {
+    "voyage": [
+      "vehicle_active"
+    ]
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "site",
+        "type": "query",
+        "datasource": {
+          "type": "postgres",
+          "uid": "afxbuc9yby1ogd"
+        },
+        "query": "SELECT DISTINCT site FROM tickets ORDER BY 1",
+        "refresh": 1,
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      },
+      {
+        "name": "voyage",
+        "type": "query",
+        "datasource": {
+          "type": "postgres",
+          "uid": "afxbuc9yby1ogd"
+        },
+        "query": "SELECT * FROM (SELECT voyage FROM tickets WHERE site IN (${site:sqlstring}) AND voyage IS NOT NULL GROUP BY voyage HAVING MIN(LEAST(date_time, date_time2)) <= $__timeTo() AND MAX(GREATEST(date_time, date_time2)) >= $__timeFrom() ORDER BY 1 DESC) v UNION ALL SELECT '(no voyage in window)' WHERE NOT EXISTS (SELECT 1 FROM (SELECT voyage FROM tickets WHERE site IN (${site:sqlstring}) AND voyage IS NOT NULL GROUP BY voyage HAVING MIN(LEAST(date_time, date_time2)) <= $__timeTo() AND MAX(GREATEST(date_time, date_time2)) >= $__timeFrom() ORDER BY 1 DESC) e)",
+        "refresh": 2,
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "sort": 2
+      },
+      {
+        "name": "ticket_type",
+        "type": "query",
+        "datasource": {
+          "type": "postgres",
+          "uid": "afxbuc9yby1ogd"
+        },
+        "query": "SELECT DISTINCT ticket_type FROM tickets ORDER BY 1",
+        "refresh": 1,
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      },
+      {
+        "name": "bay",
+        "type": "query",
+        "datasource": {
+          "type": "postgres",
+          "uid": "afxbuc9yby1ogd"
+        },
+        "query": "SELECT * FROM (SELECT DISTINCT location FROM tickets WHERE site IN (${site:sqlstring}) AND voyage IN (${voyage:sqlstring}) AND ticket_type = 'VESSEL-IN' ORDER BY 1) v UNION ALL SELECT '(no bays)' WHERE NOT EXISTS (SELECT 1 FROM (SELECT DISTINCT location FROM tickets WHERE site IN (${site:sqlstring}) AND voyage IN (${voyage:sqlstring}) AND ticket_type = 'VESSEL-IN' ORDER BY 1) e)",
+        "refresh": 1,
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "sort": 1
+      },
+      {
+        "name": "vehicle",
+        "type": "query",
+        "datasource": {
+          "type": "postgres",
+          "uid": "afxbuc9yby1ogd"
+        },
+        "query": "SELECT * FROM (SELECT DISTINCT vehicle_num FROM tickets WHERE site IN (${site:sqlstring}) AND voyage IN (${voyage:sqlstring}) AND ticket_type IN (${ticket_type:sqlstring}) AND location IN (${bay:sqlstring}) ORDER BY 1) v UNION ALL SELECT '(no vehicles)' WHERE NOT EXISTS (SELECT 1 FROM (SELECT DISTINCT vehicle_num FROM tickets WHERE site IN (${site:sqlstring}) AND voyage IN (${voyage:sqlstring}) AND ticket_type IN (${ticket_type:sqlstring}) AND location IN (${bay:sqlstring}) ORDER BY 1) e)",
+        "refresh": 1,
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "sort": 1
+      },
+      {
+        "name": "vehicle_active",
+        "type": "query",
+        "datasource": {
+          "type": "postgres",
+          "uid": "afxbuc9yby1ogd"
+        },
+        "query": "SELECT * FROM (SELECT DISTINCT vehicle_num FROM tickets WHERE site IN (${site:sqlstring}) AND voyage IN (${voyage:sqlstring}) AND ticket_type IN (${ticket_type:sqlstring}) AND location IN (${bay:sqlstring}) AND vehicle_num IN (${vehicle:sqlstring}) AND $__timeFilter(date_time2) ORDER BY 1) v UNION ALL SELECT '(no active trucks)' WHERE NOT EXISTS (SELECT 1 FROM (SELECT DISTINCT vehicle_num FROM tickets WHERE site IN (${site:sqlstring}) AND voyage IN (${voyage:sqlstring}) AND ticket_type IN (${ticket_type:sqlstring}) AND location IN (${bay:sqlstring}) AND vehicle_num IN (${vehicle:sqlstring}) AND $__timeFilter(date_time2) ORDER BY 1) e)",
+        "refresh": 2,
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "hide": 2,
+        "sort": 1
+      }
+    ]
+  }
+}
